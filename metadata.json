@@ -1,0 +1,7 @@
+{
+  "name": "Smart Quiz Maker & Trainer",
+  "description": "Create custom quizzes, practice with immediate feedback, and use a swipe-based system to curate review sets for incorrect answers.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
