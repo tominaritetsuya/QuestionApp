@@ -12,10 +12,11 @@ interface CreateFormProps {
 
 type AIMode = 'create' | 'import';
 
-const getApiKey = () => {
+const getSafeApiKey = () => {
   try {
-    return (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY || "";
-  } catch {
+    // Vercel等での実行環境によってprocessが未定義の場合があるため
+    return process.env.API_KEY || "";
+  } catch (e) {
     return "";
   }
 };
@@ -53,8 +54,8 @@ const CreateForm: React.FC<CreateFormProps> = ({ onSaveSet, initialSet, onCancel
   };
 
   const generateAIQuiz = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) return alert('APIキーが設定されていません。環境変数を確認してください。');
+    const apiKey = getSafeApiKey();
+    if (!apiKey) return alert('APIキーが設定されていません。Vercelの環境変数を確認してください。');
     if (!knowledge.trim() && images.length === 0) return alert('ヒントまたは画像を入力してください。');
     
     setIsGenerating(true);
@@ -62,11 +63,11 @@ const CreateForm: React.FC<CreateFormProps> = ({ onSaveSet, initialSet, onCancel
       const ai = new GoogleGenAI({ apiKey });
       const prompt = aiMode === 'create' 
         ? `新しく ${problemCount} 問作成してください。難易度:${difficulty}%。医療系国家試験レベル。` 
-        : `添付された情報から問題をデジタル化してください。`;
+        : `添付された情報から問題を正確に抽出し、デジタル化してください。`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: { parts: [{ text: `${prompt} 日本語、選択肢5つ、詳細な解説、JSON形式。` }] },
+        contents: { parts: [{ text: `${prompt} すべて日本語で出力し、選択肢は5つ、詳細な解説を付与。JSON形式で出力。` }] },
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -98,7 +99,8 @@ const CreateForm: React.FC<CreateFormProps> = ({ onSaveSet, initialSet, onCancel
       }));
       setProblems(prev => [...prev.filter(p => p.question !== ''), ...newItems]);
     } catch (e) {
-      alert('AI生成に失敗しました。接続状況を確認してください。');
+      console.error(e);
+      alert('AI生成に失敗しました。APIキーまたは接続状況を確認してください。');
     } finally {
       setIsGenerating(false);
     }
@@ -122,8 +124,8 @@ const CreateForm: React.FC<CreateFormProps> = ({ onSaveSet, initialSet, onCancel
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-10 pb-48">
-      {/* AI Panel */}
+    <div className="space-y-10 pb-48">
+      {/* AI Assistant Panel */}
       <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden border border-white/5">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
           <div className="flex items-center gap-3">
@@ -140,8 +142,8 @@ const CreateForm: React.FC<CreateFormProps> = ({ onSaveSet, initialSet, onCancel
         <textarea
           value={knowledge}
           onChange={(e) => setKnowledge(e.target.value)}
-          placeholder="ヒントや問題のソースを入力..."
-          className="w-full px-6 py-5 rounded-[2rem] bg-white/5 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[120px] mb-6"
+          placeholder="ヒントや問題のソースをここにペースト..."
+          className="w-full px-6 py-5 rounded-[2rem] bg-white/5 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[120px] mb-6 resize-none"
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
@@ -180,86 +182,89 @@ const CreateForm: React.FC<CreateFormProps> = ({ onSaveSet, initialSet, onCancel
             className="flex-1 bg-white text-slate-900 py-4 rounded-[1.5rem] font-black flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-xl shadow-indigo-500/10"
           >
             {isGenerating ? <div className="w-6 h-6 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" /> : <Sparkles className="w-6 h-6 fill-slate-900" />}
-            AI生成開始
+            AI問題を生成
           </button>
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Set Title</label>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例: 直前対策セット" className="w-full px-6 py-5 rounded-3xl bg-slate-50 border-none font-black text-xl text-slate-800 focus:ring-4 focus:ring-indigo-500/10 transition-all" required />
-      </div>
+      {/* Manual Creation Form Section */}
+      <form onSubmit={handleSubmit} className="space-y-10">
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Set Title</label>
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例: 直前対策セット" className="w-full px-6 py-5 rounded-3xl bg-slate-50 border-none font-black text-xl text-slate-800 focus:ring-4 focus:ring-indigo-500/10 transition-all" required />
+        </div>
 
-      <div className="space-y-10">
-        {problems.map((p, pIdx) => (
-          <div key={p.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl relative animate-in slide-in-from-bottom-5 duration-500">
-            <button type="button" onClick={() => setProblems(prev => prev.filter((_, i) => i !== pIdx))} className="absolute top-8 right-8 text-slate-200 hover:text-red-500 transition-colors"><Trash2 className="w-7 h-7" /></button>
-            <div className="flex items-center gap-4 mb-8">
-              <span className="bg-indigo-600 text-white text-xs font-black px-4 py-1.5 rounded-full tracking-tighter uppercase">Q {pIdx + 1}</span>
-              <div className="flex bg-slate-50 p-1 rounded-2xl ml-auto border border-slate-100">
-                {(['compulsory', 'clinical'] as const).map(c => (
-                  <button key={c} type="button" onClick={() => updateProblem(pIdx, { category: c })} className={`py-2 px-6 text-[11px] font-black rounded-xl transition-all ${p.category === c ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>{c === 'compulsory' ? '必修' : '臨床'}</button>
-                ))}
-              </div>
-            </div>
-
-            <textarea value={p.question} onChange={(e) => updateProblem(pIdx, { question: e.target.value })} className="w-full px-6 py-5 rounded-[2rem] bg-slate-50 border-none text-[18px] font-bold text-slate-800 min-h-[120px] mb-8 focus:ring-4 focus:ring-indigo-500/5 transition-all" placeholder="問題文を入力..." />
-
-            <div className="space-y-4 mb-10">
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4 font-mono">Choices & Answer</label>
-              {p.choices?.map((c, cIdx) => (
-                <div key={c.id} className="flex gap-4 group">
-                  <button type="button" onClick={() => {
-                    const nextCorrect = p.isMultipleChoice 
-                      ? (p.correctIndices?.includes(cIdx) ? p.correctIndices.filter(i => i !== cIdx) : [...(p.correctIndices || []), cIdx])
-                      : [cIdx];
-                    updateProblem(pIdx, { correctIndices: nextCorrect });
-                  }} className={`w-12 h-12 rounded-full shrink-0 flex items-center justify-center transition-all ${p.correctIndices?.includes(cIdx) ? 'bg-green-500 text-white shadow-lg shadow-green-200' : 'bg-slate-100 text-slate-300'}`}>
-                    <CheckCircle2 className="w-7 h-7" />
-                  </button>
-                  <input value={c.text} onChange={(e) => {
-                    const next = [...(p.choices || [])];
-                    next[cIdx].text = e.target.value;
-                    updateProblem(pIdx, { choices: next });
-                  }} className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 border-none font-medium text-slate-700" placeholder={`選択肢 ${cIdx + 1}`} />
+        <div className="space-y-10">
+          {problems.map((p, pIdx) => (
+            <div key={p.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl relative animate-in slide-in-from-bottom-5 duration-500">
+              <button type="button" onClick={() => setProblems(prev => prev.filter((_, i) => i !== pIdx))} className="absolute top-8 right-8 text-slate-200 hover:text-red-500 transition-colors"><Trash2 className="w-7 h-7" /></button>
+              <div className="flex items-center gap-4 mb-8">
+                <span className="bg-indigo-600 text-white text-xs font-black px-4 py-1.5 rounded-full tracking-tighter uppercase">Question {pIdx + 1}</span>
+                <div className="flex bg-slate-50 p-1 rounded-2xl ml-auto border border-slate-100">
+                  {(['compulsory', 'clinical'] as const).map(c => (
+                    <button key={c} type="button" onClick={() => updateProblem(pIdx, { category: c })} className={`py-2 px-6 text-[11px] font-black rounded-xl transition-all ${p.category === c ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>{c === 'compulsory' ? '必修' : '臨床'}</button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div className="bg-indigo-50/50 p-6 rounded-[2.5rem] border border-indigo-100">
-              <label className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" /> COMMUNITY NOTES
-              </label>
-              <div className="space-y-3">
-                {p.comments?.map((com, cIdx) => (
-                  <div key={cIdx} className="flex gap-2 animate-in slide-in-from-left-2 duration-300">
-                    <input type="text" value={com} onChange={(e) => {
-                      const next = [...(p.comments || [])];
-                      next[cIdx] = e.target.value;
-                      updateProblem(pIdx, { comments: next });
-                    }} className="flex-1 px-5 py-3 rounded-xl bg-white border border-indigo-100 text-sm font-medium focus:ring-2 focus:ring-indigo-500" placeholder="共有するコメント..." />
-                    <button type="button" onClick={() => updateProblem(pIdx, { comments: p.comments?.filter((_, i) => i !== cIdx) })} className="text-red-300 hover:text-red-500 transition-colors"><X className="w-5 h-5" /></button>
+              <textarea value={p.question} onChange={(e) => updateProblem(pIdx, { question: e.target.value })} className="w-full px-6 py-5 rounded-[2rem] bg-slate-50 border-none text-[18px] font-bold text-slate-800 min-h-[120px] mb-8 focus:ring-4 focus:ring-indigo-500/5 transition-all resize-none" placeholder="問題文を入力..." required />
+
+              <div className="space-y-4 mb-10">
+                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4 font-mono">Choices & Answer</label>
+                {p.choices?.map((c, cIdx) => (
+                  <div key={c.id} className="flex gap-4 group">
+                    <button type="button" onClick={() => {
+                      const nextCorrect = p.isMultipleChoice 
+                        ? (p.correctIndices?.includes(cIdx) ? p.correctIndices.filter(i => i !== cIdx) : [...(p.correctIndices || []), cIdx])
+                        : [cIdx];
+                      updateProblem(pIdx, { correctIndices: nextCorrect });
+                    }} className={`w-12 h-12 rounded-full shrink-0 flex items-center justify-center transition-all ${p.correctIndices?.includes(cIdx) ? 'bg-green-500 text-white shadow-lg shadow-green-200' : 'bg-slate-100 text-slate-300'}`}>
+                      <CheckCircle2 className="w-7 h-7" />
+                    </button>
+                    <input value={c.text} onChange={(e) => {
+                      const next = [...(p.choices || [])];
+                      next[cIdx].text = e.target.value;
+                      updateProblem(pIdx, { choices: next });
+                    }} className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 border-none font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-100" placeholder={`選択肢 ${cIdx + 1}`} required />
                   </div>
                 ))}
-                <button type="button" onClick={() => updateProblem(pIdx, { comments: [...(p.comments || []), ''] })} className="w-full py-3 bg-white border-2 border-dashed border-indigo-200 rounded-2xl text-indigo-400 text-[10px] font-black hover:bg-indigo-50 transition-colors tracking-widest uppercase">+ Add New Note</button>
+              </div>
+
+              <div className="bg-indigo-50/50 p-6 rounded-[2.5rem] border border-indigo-100">
+                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" /> COMMUNITY NOTES
+                </label>
+                <div className="space-y-3">
+                  {p.comments?.map((com, cIdx) => (
+                    <div key={cIdx} className="flex gap-2 animate-in slide-in-from-left-2 duration-300">
+                      <input type="text" value={com} onChange={(e) => {
+                        const next = [...(p.comments || [])];
+                        next[cIdx] = e.target.value;
+                        updateProblem(pIdx, { comments: next });
+                      }} className="flex-1 px-5 py-3 rounded-xl bg-white border border-indigo-100 text-sm font-medium focus:ring-2 focus:ring-indigo-500 shadow-sm" placeholder="共有するコメント..." />
+                      <button type="button" onClick={() => updateProblem(pIdx, { comments: p.comments?.filter((_, i) => i !== cIdx) })} className="text-red-300 hover:text-red-500 transition-colors"><X className="w-5 h-5" /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => updateProblem(pIdx, { comments: [...(p.comments || []), ''] })} className="w-full py-3 bg-white border-2 border-dashed border-indigo-200 rounded-2xl text-indigo-400 text-[10px] font-black hover:bg-indigo-50 transition-colors tracking-widest uppercase">+ Add New Note</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
 
-        <button type="button" onClick={() => setProblems([...problems, { id: crypto.randomUUID(), question: '', choices: [{ id: '1', text: '' }, { id: '2', text: '' }], correctIndices: [0], isMultipleChoice: false, explanation: '', category: 'compulsory', comments: [] }])} className="w-full py-10 border-4 border-dashed border-slate-200 rounded-[3rem] text-slate-300 font-black hover:border-indigo-200 hover:text-indigo-400 transition-all active:scale-[0.99] uppercase tracking-widest">+ Add New Question</button>
-      </div>
-
-      {/* Footer - Centered for PC */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center p-6 pb-12 bg-white/60 backdrop-blur-xl border-t border-slate-100 pointer-events-none">
-        <div className="w-full max-w-xl flex gap-4 pointer-events-auto">
-          {onCancel && <button type="button" onClick={onCancel} className="px-10 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-lg active:scale-95 transition-all">戻る</button>}
-          <button type="submit" className="flex-1 bg-indigo-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-[0.98]">
-            保存して完了
-          </button>
+          <button type="button" onClick={() => setProblems([...problems, { id: crypto.randomUUID(), question: '', choices: [{ id: '1', text: '' }, { id: '2', text: '' }], correctIndices: [0], isMultipleChoice: false, explanation: '', category: 'compulsory', comments: [] }])} className="w-full py-10 border-4 border-dashed border-slate-200 rounded-[3rem] text-slate-300 font-black hover:border-indigo-200 hover:text-indigo-400 transition-all active:scale-[0.99] uppercase tracking-widest">+ Add New Question</button>
         </div>
-      </div>
-    </form>
+
+        {/* Action Footer - Fixed and Centered for all Screens */}
+        <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center p-6 pb-12 bg-white/60 backdrop-blur-xl border-t border-slate-100 pointer-events-none">
+          <div className="w-full max-w-xl flex gap-4 pointer-events-auto">
+            {onCancel && <button type="button" onClick={onCancel} className="px-10 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-lg active:scale-95 transition-all">戻る</button>}
+            <button type="submit" className="flex-1 bg-indigo-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-[0.98]">
+              全セットを保存
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 };
 

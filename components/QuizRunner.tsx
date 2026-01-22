@@ -78,20 +78,20 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
 
   return (
     <div className="fixed inset-0 bg-white z-[150] flex flex-col items-center overflow-hidden">
-      {/* Header Container */}
-      <div className="w-full flex justify-center bg-white/90 backdrop-blur-md border-b border-slate-100 shrink-0 z-50">
+      {/* Header Bar - Fixed and Centered */}
+      <div className="w-full flex justify-center bg-white/90 backdrop-blur-md border-b border-slate-100 shrink-0 z-[160]">
         <div className="w-full max-w-xl px-4 h-16 flex items-center justify-between">
           <button onClick={onClose} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
             <X className="w-7 h-7" />
           </button>
-          <div className="text-xs font-black tracking-widest text-slate-800 bg-slate-100 px-4 py-1.5 rounded-full border border-slate-200">
-            {currentIdx + 1} / {set.problems.length}
+          <div className="text-[10px] font-black tracking-[0.2em] text-slate-800 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 uppercase">
+            Progress: {currentIdx + 1} / {set.problems.length}
           </div>
           <div className="w-10" />
         </div>
       </div>
 
-      {/* Scrollable Content Container */}
+      {/* Main Content - Centered Scroll View */}
       <div 
         ref={scrollContainerRef}
         className="flex-1 w-full flex justify-center overflow-y-auto scroll-smooth bg-white"
@@ -101,9 +101,9 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
             <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter border-2 ${
               currentProblem.category === 'compulsory' ? 'bg-amber-500 border-amber-600 text-white' : 'bg-blue-600 border-blue-700 text-white'
             }`}>
-              {currentProblem.category === 'compulsory' ? 'Compulsory' : 'Clinical'}
+              {currentProblem.category === 'compulsory' ? '必修' : '臨床'}
             </div>
-            <div className="text-[10px] font-mono text-slate-400">ID: {currentProblem.id.slice(0, 8)}</div>
+            <div className="text-[10px] font-mono text-slate-400">ID: {currentProblem.id.slice(0, 8).toUpperCase()}</div>
           </div>
 
           <h2 className="text-[20px] font-black text-slate-800 leading-[1.6] mb-10 tracking-tight">
@@ -117,7 +117,7 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
               
               let cardStyle = "border-slate-200 bg-white text-slate-700 hover:border-indigo-400 hover:shadow-md";
               if (isSelected && !isSubmitted) {
-                cardStyle = "border-indigo-600 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-600 ring-offset-1";
+                cardStyle = "border-indigo-600 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-600 ring-offset-1 shadow-indigo-100";
               } else if (isSubmitted) {
                 if (isActuallyCorrect) {
                   cardStyle = "border-green-500 bg-green-500 text-white font-bold shadow-lg shadow-green-100";
@@ -158,10 +158,10 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
                 <div className="flex items-center gap-2 text-indigo-300 font-black mb-4 text-xs tracking-[0.2em] uppercase">
                   <BookOpenText className="w-5 h-5" />
-                  <span>EXPLANATION</span>
+                  <span>解説</span>
                 </div>
                 <p className="text-slate-300 leading-[1.8] whitespace-pre-wrap text-[16px] font-medium">
-                  {currentProblem.explanation || "No explanation provided."}
+                  {currentProblem.explanation || "解説はありません。"}
                 </p>
 
                 {comments.length > 0 && (
@@ -169,7 +169,7 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">
                         <MessageSquare className="w-4 h-4" />
-                        COMMUNITY FEED
+                        Community Notes
                       </div>
                       {comments.length > 1 && (
                         <div className="flex gap-2">
@@ -190,7 +190,7 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
                     </div>
                     
                     <div className="text-[9px] text-white/20 text-center mt-4 font-black uppercase tracking-widest">
-                      {isHovering ? 'Cycling Active' : 'Hover / Tap to browse community notes'}
+                      {isHovering ? '自動切り替え中' : 'ホバーまたはタップで閲覧'}
                     </div>
                   </div>
                 )}
@@ -200,9 +200,9 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
         </div>
       </div>
 
-      {/* Floating Footer - Centered for PC */}
-      <div className="w-full flex justify-center fixed bottom-0 left-0 right-0 z-[160] px-4 pointer-events-none">
-        <div className="w-full max-w-xl bg-white/80 backdrop-blur-2xl border-t border-slate-100 p-6 pb-12 rounded-t-[2rem] shadow-2xl pointer-events-auto">
+      {/* Bottom Floating Footer - Always Centered */}
+      <div className="w-full flex justify-center fixed bottom-0 left-0 right-0 z-[170] px-4 pointer-events-none pb-12">
+        <div className="w-full max-w-xl bg-white/80 backdrop-blur-2xl border border-slate-100 p-6 rounded-[2.5rem] shadow-[0_-20px_50px_-15px_rgba(0,0,0,0.1)] pointer-events-auto">
           <div className="w-full flex flex-col gap-4">
             {isSubmitted ? (
               <>
@@ -210,13 +210,13 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
                   isCorrect ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-100' : 'bg-red-500 border-red-600 text-white shadow-lg shadow-red-100'
                 }`}>
                   {isCorrect ? <CheckCircle className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
-                  <span>{isCorrect ? 'PERFECT!' : 'MISS'}</span>
+                  <span>{isCorrect ? 'SUCCESS!' : 'FAILED'}</span>
                 </div>
                 <button
                   onClick={isCorrect ? moveToNext : () => setShowSwipe(true)}
                   className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black text-[18px] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
-                  {isCorrect ? 'CONTINUE' : 'FINISH TURN'}
+                  {isCorrect ? '次の問題へ' : '結果を確定'}
                 </button>
               </>
             ) : (
@@ -225,7 +225,7 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
                 disabled={selectedIndices.length === 0}
                 className="w-full bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black text-[18px] shadow-2xl shadow-indigo-100 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none transition-all active:scale-[0.98]"
               >
-                SUBMIT ANSWER
+                回答を確定する
               </button>
             )}
           </div>
