@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ProblemSet, Problem } from '../types';
 import { X, CheckCircle, AlertCircle, BookOpenText, MessageSquare } from 'lucide-react';
 import SwipeCard from './SwipeCard';
@@ -17,24 +17,28 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
   const [keptProblems, setKeptProblems] = useState<Problem[]>([]);
   const [showSwipe, setShowSwipe] = useState(false);
   
-  // コメント切り替え用のステート
+  // コメント管理
   const [commentIdx, setCommentIdx] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const currentProblem = set.problems[currentIdx];
   const isCorrect = React.useMemo(() => {
     if (!currentProblem) return false;
-    const correct = currentProblem.correctIndices.sort();
+    const correct = [...currentProblem.correctIndices].sort();
     const selected = [...selectedIndices].sort();
     return JSON.stringify(correct) === JSON.stringify(selected);
   }, [currentProblem, selectedIndices]);
 
   const comments = currentProblem?.comments || [];
 
-  // 3秒ごとのコメント切り替えロジック
+  // 3秒ごとの切り替えロジック
   useEffect(() => {
     let interval: number | undefined;
-    if ((isHovering || 'ontouchstart' in window) && comments.length > 1 && isSubmitted) {
+    const isMobile = 'ontouchstart' in window;
+    
+    // PCはホバー時、スマホは常に（またはタップ時）動作させる
+    if ((isHovering || isMobile) && comments.length > 1 && isSubmitted) {
       interval = window.setInterval(() => {
         setCommentIdx(prev => (prev + 1) % comments.length);
       }, 3000);
@@ -46,28 +50,10 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
 
   const handleToggleOption = (idx: number) => {
     if (isSubmitted) return;
-
     if (currentProblem.isMultipleChoice) {
-      if (selectedIndices.includes(idx)) {
-        setSelectedIndices(prev => prev.filter(i => i !== idx));
-      } else {
-        setSelectedIndices(prev => [...prev, idx]);
-      }
+      setSelectedIndices(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
     } else {
       setSelectedIndices([idx]);
-    }
-  };
-
-  const handleSubmit = () => {
-    if (selectedIndices.length === 0) return;
-    setIsSubmitted(true);
-  };
-
-  const handleNext = () => {
-    if (!isCorrect) {
-      setShowSwipe(true);
-    } else {
-      moveToNext();
     }
   };
 
@@ -78,15 +64,14 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
       setIsSubmitted(false);
       setShowSwipe(false);
       setCommentIdx(0);
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       onFinish(keptProblems, set.title);
     }
   }, [currentIdx, set.problems.length, set.title, keptProblems, onFinish]);
 
   const handleSwipe = (keep: boolean) => {
-    if (keep) {
-      setKeptProblems(prev => [...prev, currentProblem]);
-    }
+    if (keep) setKeptProblems(prev => [...prev, currentProblem]);
     moveToNext();
   };
 
@@ -95,58 +80,55 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
   const getChoiceLabel = (idx: number) => String.fromCharCode(97 + idx) + ".";
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="bg-white px-4 h-14 flex items-center justify-between border-b border-slate-100 shrink-0">
-        <button onClick={onClose} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors">
-          <X className="w-6 h-6" />
+    <div className="fixed inset-0 bg-white z-[150] flex flex-col items-center overflow-hidden">
+      {/* Centered App Header */}
+      <div className="w-full max-w-xl bg-white/90 backdrop-blur-md px-4 h-16 flex items-center justify-between border-b border-slate-100 shrink-0 z-50">
+        <button onClick={onClose} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
+          <X className="w-7 h-7" />
         </button>
-        <div className="text-sm font-bold text-slate-800 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-          {currentIdx + 1} / {set.problems.length}
+        <div className="text-xs font-black tracking-widest text-slate-800 bg-slate-100 px-4 py-1.5 rounded-full border border-slate-200">
+          PROGRESS: {currentIdx + 1} / {set.problems.length}
         </div>
         <div className="w-10" />
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto scroll-smooth">
-        <div className="container mx-auto max-w-xl px-4 py-6 pb-44">
-          {/* Metadata Bar */}
-          <div className="bg-[#f0f7ff] p-3 rounded-xl mb-6 flex justify-center items-center gap-4 text-[12px] text-slate-500 border border-[#e1effe] font-mono">
-            <span>ID: {currentProblem.id.slice(0, 8).toUpperCase()}</span>
-            <span className="opacity-30">|</span>
-            <div className="flex items-center gap-1.5">
-              <span>区分:</span>
-              <span className={`inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold border rounded shadow-sm ${
-                currentProblem.category === 'compulsory' ? 'bg-amber-500 border-amber-600 text-white' : 'bg-blue-500 border-blue-600 text-white'
-              }`}>
-                {currentProblem.category === 'compulsory' ? '必' : '臨'}
-              </span>
+      {/* Main Content Area */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 w-full max-w-xl overflow-y-auto overflow-x-hidden scroll-smooth bg-white"
+      >
+        <div className="px-6 py-8 pb-48">
+          {/* Metadata */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter border-2 ${
+              currentProblem.category === 'compulsory' ? 'bg-amber-500 border-amber-600 text-white' : 'bg-blue-600 border-blue-700 text-white'
+            }`}>
+              {currentProblem.category === 'compulsory' ? 'Compulsory' : 'Clinical'}
             </div>
+            <div className="text-[10px] font-mono text-slate-400">#{currentProblem.id.slice(0, 8)}</div>
           </div>
 
-          {/* Question Text */}
-          <div className="mb-10">
-            <h2 className="text-[19px] font-bold text-slate-800 leading-[1.6] tracking-tight">
-              {currentProblem.question}
-            </h2>
-          </div>
+          {/* Question */}
+          <h2 className="text-[20px] font-black text-slate-800 leading-[1.6] mb-10 tracking-tight">
+            {currentProblem.question}
+          </h2>
 
           {/* Choices */}
-          <div className="space-y-3.5">
+          <div className="space-y-4">
             {currentProblem.choices.map((choice, idx) => {
               const isSelected = selectedIndices.includes(idx);
               const isActuallyCorrect = currentProblem.correctIndices.includes(idx);
               
-              let variantClasses = "border-slate-200 bg-white text-slate-700 hover:border-indigo-200";
+              let cardStyle = "border-slate-200 bg-white text-slate-700 hover:border-indigo-400 hover:shadow-md";
               if (isSelected && !isSubmitted) {
-                variantClasses = "border-indigo-600 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-600";
+                cardStyle = "border-indigo-600 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-600 ring-offset-1";
               } else if (isSubmitted) {
                 if (isActuallyCorrect) {
-                  variantClasses = "border-green-500 bg-green-50 text-green-800 font-bold";
+                  cardStyle = "border-green-500 bg-green-500 text-white font-bold shadow-lg shadow-green-100";
                 } else if (isSelected && !isActuallyCorrect) {
-                  variantClasses = "border-red-500 bg-red-50 text-red-700";
+                  cardStyle = "border-red-500 bg-red-50 text-red-600";
                 } else {
-                  variantClasses = "border-slate-100 text-slate-300 opacity-50";
+                  cardStyle = "border-slate-100 text-slate-300 opacity-40 grayscale";
                 }
               }
 
@@ -155,13 +137,14 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
                   key={choice.id}
                   disabled={isSubmitted}
                   onClick={() => handleToggleOption(idx)}
-                  className={`w-full p-4 rounded-2xl border text-left text-[16px] transition-all flex items-start gap-4 shadow-sm active:scale-[0.98] ${variantClasses}`}
+                  className={`w-full p-5 rounded-[1.5rem] border-2 text-left text-[16px] transition-all flex items-start gap-4 active:scale-[0.98] ${cardStyle}`}
                 >
-                  {/* Choice Label - Explicitly colored to avoid being white */}
-                  <span className={`flex-shrink-0 mt-0.5 w-6 text-slate-500 font-bold ${isSubmitted && isActuallyCorrect ? 'text-green-600' : ''}`}>
+                  <span className={`flex-shrink-0 mt-0.5 w-6 font-black text-center ${
+                    isSubmitted && isActuallyCorrect ? 'text-white' : isSelected ? 'text-indigo-600' : 'text-slate-400'
+                  }`}>
                     {getChoiceLabel(idx)}
                   </span>
-                  <div className="flex-1 leading-normal">
+                  <div className="flex-1 leading-relaxed font-medium">
                     {choice.text}
                   </div>
                 </button>
@@ -169,51 +152,51 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
             })}
           </div>
 
-          {/* Explanation Section */}
+          {/* Explanation Area */}
           {isSubmitted && (
             <div 
               onMouseEnter={() => setIsHovering(true)}
               onMouseLeave={() => setIsHovering(false)}
-              onClick={() => setIsHovering(!isHovering)} // スマホ用タップ切り替え
-              className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-500"
+              className="mt-14 animate-in fade-in slide-in-from-bottom-8 duration-700"
             >
-              <div className="p-6 bg-[#fffdf5] rounded-[2rem] border border-[#fef3c7] relative overflow-hidden shadow-sm">
-                <div className="flex items-center gap-2 text-amber-700 font-black mb-3 text-sm uppercase tracking-wider">
+              <div className="p-8 bg-slate-900 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+                <div className="flex items-center gap-2 text-indigo-300 font-black mb-4 text-xs tracking-[0.2em] uppercase">
                   <BookOpenText className="w-5 h-5" />
-                  <span>解説</span>
+                  <span>EXPLANATION</span>
                 </div>
-                <p className="text-slate-700 leading-[1.7] whitespace-pre-wrap text-[15px]">
-                  {currentProblem.explanation || "解説はありません。"}
+                <p className="text-slate-300 leading-[1.8] whitespace-pre-wrap text-[16px] font-medium">
+                  {currentProblem.explanation || "No explanation provided."}
                 </p>
 
-                {/* Comment Cycle Area */}
+                {/* Shared Comments Cycle */}
                 {comments.length > 0 && (
-                  <div className="mt-6 pt-5 border-t border-amber-200/50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        Shared Community
+                  <div className="mt-8 pt-8 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">
+                        <MessageSquare className="w-4 h-4" />
+                        COMMUNITY FEED
                       </div>
                       {comments.length > 1 && (
-                        <div className="flex gap-1.5">
+                        <div className="flex gap-2">
                           {comments.map((_, i) => (
-                            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === commentIdx ? 'bg-indigo-500 scale-125' : 'bg-slate-200'}`} />
+                            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${i === commentIdx ? 'bg-indigo-400 scale-150' : 'bg-white/10'}`} />
                           ))}
                         </div>
                       )}
                     </div>
                     
-                    <div className="min-h-[50px] flex items-center">
+                    <div className="min-h-[60px] flex items-center bg-white/5 p-5 rounded-2xl border border-white/5">
                       <div 
                         key={commentIdx}
-                        className="w-full text-[14px] text-slate-600 italic bg-white/70 px-4 py-3 rounded-2xl border border-white/50 shadow-inner animate-in fade-in zoom-in-95 duration-500"
+                        className="w-full text-[14px] text-indigo-100 italic leading-relaxed animate-in fade-in zoom-in-95 duration-500"
                       >
                         「{comments[commentIdx]}」
                       </div>
                     </div>
                     
-                    <div className="text-[9px] text-slate-400 text-center mt-3 font-bold opacity-60">
-                      {isHovering || 'ontouchstart' in window ? '自動切り替え中...' : 'ホバーで他のコメントを表示'}
+                    <div className="text-[9px] text-white/20 text-center mt-4 font-black uppercase tracking-widest">
+                      {isHovering ? 'Cycling Active' : 'Hover to browse community notes'}
                     </div>
                   </div>
                 )}
@@ -223,31 +206,31 @@ const QuizRunner: React.FC<QuizRunnerProps> = ({ set, onClose, onFinish }) => {
         </div>
       </div>
 
-      {/* Footer Navigation */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 p-4 pb-10 z-40">
-        <div className="container mx-auto max-w-xl">
+      {/* Responsive Fixed Footer */}
+      <div className="w-full max-w-xl bg-white/80 backdrop-blur-2xl border-t border-slate-100 p-6 pb-12 z-[160] shrink-0">
+        <div className="w-full flex flex-col gap-4">
           {isSubmitted ? (
-            <div className="flex flex-col gap-3">
-              <div className={`p-4 rounded-2xl flex items-center justify-center gap-3 font-black text-lg shadow-sm border ${
-                isCorrect ? 'bg-green-500 text-white border-green-600' : 'bg-red-500 text-white border-red-600'
+            <>
+              <div className={`p-4 rounded-2xl flex items-center justify-center gap-3 font-black text-lg transition-colors border-2 ${
+                isCorrect ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-100' : 'bg-red-500 border-red-600 text-white shadow-lg shadow-red-100'
               }`}>
                 {isCorrect ? <CheckCircle className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
-                <span>{isCorrect ? 'SUCCESS!' : 'FAILED'}</span>
+                <span>{isCorrect ? 'PERFECT!' : 'MISS'}</span>
               </div>
               <button
-                onClick={handleNext}
-                className="w-full bg-slate-900 text-white py-4.5 rounded-2xl font-bold text-[17px] shadow-xl hover:bg-black transition-all active:scale-[0.97]"
+                onClick={isCorrect ? moveToNext : () => setShowSwipe(true)}
+                className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black text-[18px] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
-                次の問題へ
+                {isCorrect ? 'CONTINUE' : 'FINISH TURN'}
               </button>
-            </div>
+            </>
           ) : (
             <button
-              onClick={handleSubmit}
+              onClick={() => selectedIndices.length > 0 && setIsSubmitted(true)}
               disabled={selectedIndices.length === 0}
-              className="w-full bg-indigo-600 text-white py-4.5 rounded-2xl font-bold text-[17px] shadow-xl shadow-indigo-100 hover:bg-indigo-700 disabled:bg-slate-200 disabled:shadow-none transition-all active:scale-[0.97]"
+              className="w-full bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black text-[18px] shadow-2xl shadow-indigo-200 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none transition-all active:scale-[0.98]"
             >
-              回答を確定する
+              SUBMIT ANSWER
             </button>
           )}
         </div>

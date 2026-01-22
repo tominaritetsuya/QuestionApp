@@ -60,31 +60,9 @@ const App: React.FC = () => {
       setSets(prev => [newSet, ...prev]);
       setImportCode('');
       setShowImportModal(false);
-      alert('セットを導入しました！');
     } catch (e) {
-      alert('無効なセットコードです。正しくコピーされているか確認してください。');
+      alert('無効なセットコードです。');
     }
-  };
-
-  const confirmDelete = () => {
-    if (setToDelete) {
-      setSets(prev => prev.filter(s => s.id !== setToDelete.id));
-      setSetToDelete(null);
-    }
-  };
-
-  const handleStartSet = (set: ProblemSet) => {
-    setActiveSet(set);
-  };
-
-  const handleEditSet = (set: ProblemSet) => {
-    setEditingSet(set);
-    setActiveTab('create');
-  };
-
-  const handleCancelEdit = () => {
-    setEditingSet(null);
-    setActiveTab('library');
   };
 
   const handleFinishQuiz = (keptProblems: Problem[], originalSetTitle: string) => {
@@ -111,23 +89,23 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
       <Header activeTab={activeTab} setActiveTab={(tab) => {
         setActiveTab(tab);
         if (tab === 'library') setEditingSet(null);
       }} />
       
-      <main className="flex-1 container mx-auto max-w-2xl px-4 py-6">
+      <main className="flex-1 w-full max-w-2xl mx-auto px-4 py-8">
         {activeTab === 'library' ? (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <BookOpen className="w-6 h-6 text-indigo-600" />
-                演習セット一覧
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3 tracking-tight">
+                <BookOpen className="w-8 h-8 text-indigo-600" />
+                LIBRARY
               </h2>
               <button 
                 onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-black hover:bg-slate-50 transition-all shadow-sm active:scale-95"
               >
                 <Download className="w-4 h-4" />
                 コードで導入
@@ -136,53 +114,51 @@ const App: React.FC = () => {
 
             <SetList 
               sets={sets} 
-              onStartSet={handleStartSet} 
-              onEditSet={handleEditSet}
-              onRemoveSet={(id) => {
-                const target = sets.find(s => s.id === id);
-                if (target) setSetToDelete(target);
-              }} 
+              onStartSet={(set) => setActiveSet(set)} 
+              onEditSet={(set) => { setEditingSet(set); setActiveTab('create'); }}
+              onRemoveSet={(id) => setSetToDelete(sets.find(s => s.id === id) || null)} 
             />
           </div>
         ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <PlusCircle className="w-6 h-6 text-indigo-600" />
-              {editingSet ? '問題を編集' : '新しい問題を作成'}
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3 tracking-tight">
+              <PlusCircle className="w-8 h-8 text-indigo-600" />
+              {editingSet ? 'EDIT QUIZ' : 'CREATE NEW'}
             </h2>
             <CreateForm 
               onSaveSet={handleSaveSet} 
               initialSet={editingSet} 
-              onCancel={editingSet ? handleCancelEdit : undefined}
+              onCancel={editingSet ? () => { setEditingSet(null); setActiveTab('library'); } : undefined}
             />
           </div>
         )}
       </main>
 
-      {/* Delete Confirmation Modal */}
+      {/* Custom Modals Container */}
       {setToDelete && (
-        <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8 text-center">
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-8 h-8" />
+              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertTriangle className="w-10 h-10" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">セットを削除しますか？</h3>
-              <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                「<span className="font-bold text-slate-700">{setToDelete.title}</span>」を削除します。<br/>
-                この操作は取り消せません。
+              <h3 className="text-xl font-black text-slate-800 mb-2">削除しますか？</h3>
+              <p className="text-sm text-slate-500 mb-8 leading-relaxed px-4">
+                「<span className="font-bold text-slate-700">{setToDelete.title}</span>」を削除します。この操作は取り消せません。
               </p>
               <div className="flex flex-col gap-3">
                 <button
-                  onClick={confirmDelete}
-                  className="w-full py-3.5 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  onClick={() => {
+                    setSets(prev => prev.filter(s => s.id !== setToDelete.id));
+                    setSetToDelete(null);
+                  }}
+                  className="w-full py-4 bg-red-500 text-white font-black rounded-2xl hover:bg-red-600 transition-all active:scale-95"
                 >
-                  <Trash2 className="w-5 h-5" />
                   削除する
                 </button>
                 <button
                   onClick={() => setSetToDelete(null)}
-                  className="w-full py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all"
+                  className="w-full py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl hover:bg-slate-200 transition-all"
                 >
                   キャンセル
                 </button>
@@ -194,40 +170,31 @@ const App: React.FC = () => {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+        <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="font-black text-slate-800 flex items-center gap-2">
                 <Download className="w-5 h-5 text-indigo-600" />
-                セットコードを入力
+                IMPORT CODE
               </h3>
-              <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowImportModal(false)} className="p-2 text-slate-400 hover:text-slate-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-6">
-              <p className="text-sm text-slate-500 mb-4 leading-relaxed">
-                共有されたセットコードを貼り付けてください。自動的に問題セットがライブラリに追加されます。
-              </p>
+            <div className="p-8">
               <textarea
                 value={importCode}
                 onChange={(e) => setImportCode(e.target.value)}
-                placeholder="コードをここにペースト..."
-                className="w-full h-32 p-4 rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-xs font-mono break-all text-slate-900"
+                placeholder="コードをペーストしてください..."
+                className="w-full h-40 p-5 rounded-3xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-[11px] font-mono leading-relaxed"
               />
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => setShowImportModal(false)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all"
-                >
-                  キャンセル
-                </button>
+              <div className="mt-8 flex gap-3">
                 <button
                   onClick={handleImport}
                   disabled={!importCode.trim()}
-                  className="flex-[2] py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 transition-all active:scale-[0.98] shadow-lg shadow-indigo-100"
+                  className="flex-1 py-4.5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 disabled:bg-slate-200 transition-all active:scale-95 shadow-xl shadow-indigo-100"
                 >
-                  導入する
+                  導入
                 </button>
               </div>
             </div>
