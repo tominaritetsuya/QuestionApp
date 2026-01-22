@@ -5,9 +5,18 @@ import Header from './components/Header';
 import SetList from './components/SetList';
 import CreateForm from './components/CreateForm';
 import QuizRunner from './components/QuizRunner';
-import { BookOpen, PlusCircle, Download, X, Copy, Check, Trash2, AlertTriangle } from 'lucide-react';
+import { BookOpen, PlusCircle, Download, X, AlertTriangle } from 'lucide-react';
 
 const STORAGE_KEY = 'smart-quiz-sets';
+
+// ホワイトスクリーン対策: process.env が未定義の場合のクラッシュを防止
+const getApiKey = () => {
+  try {
+    return (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY || "";
+  } catch {
+    return "";
+  }
+};
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('library');
@@ -61,7 +70,7 @@ const App: React.FC = () => {
       setImportCode('');
       setShowImportModal(false);
     } catch (e) {
-      alert('無効なセットコードです。');
+      alert('無効なセットコードです。形式を確認してください。');
     }
   };
 
@@ -69,7 +78,7 @@ const App: React.FC = () => {
     if (keptProblems.length > 0) {
       const reviewSet: ProblemSet = {
         id: crypto.randomUUID(),
-        title: `復習: ${originalSetTitle} (${new Date().toLocaleDateString()})`,
+        title: `復習: ${originalSetTitle}`,
         createdAt: Date.now(),
         problems: keptProblems
       };
@@ -89,7 +98,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-900">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans antialiased text-slate-900">
       <Header activeTab={activeTab} setActiveTab={(tab) => {
         setActiveTab(tab);
         if (tab === 'library') setEditingSet(null);
@@ -105,7 +114,7 @@ const App: React.FC = () => {
               </h2>
               <button 
                 onClick={() => setShowImportModal(true)}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-black hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
               >
                 <Download className="w-4 h-4" />
                 コードで導入
@@ -134,7 +143,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Custom Modals Container */}
+      {/* Delete Confirmation Modal */}
       {setToDelete && (
         <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -144,7 +153,7 @@ const App: React.FC = () => {
               </div>
               <h3 className="text-xl font-black text-slate-800 mb-2">削除しますか？</h3>
               <p className="text-sm text-slate-500 mb-8 leading-relaxed px-4">
-                「<span className="font-bold text-slate-700">{setToDelete.title}</span>」を削除します。この操作は取り消せません。
+                「<span className="font-bold text-slate-700">{setToDelete.title}</span>」を削除します。
               </p>
               <div className="flex flex-col gap-3">
                 <button
@@ -152,7 +161,7 @@ const App: React.FC = () => {
                     setSets(prev => prev.filter(s => s.id !== setToDelete.id));
                     setSetToDelete(null);
                   }}
-                  className="w-full py-4 bg-red-500 text-white font-black rounded-2xl hover:bg-red-600 transition-all active:scale-95"
+                  className="w-full py-4 bg-red-500 text-white font-black rounded-2xl hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-200"
                 >
                   削除する
                 </button>
@@ -177,7 +186,7 @@ const App: React.FC = () => {
                 <Download className="w-5 h-5 text-indigo-600" />
                 IMPORT CODE
               </h3>
-              <button onClick={() => setShowImportModal(false)} className="p-2 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowImportModal(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -185,16 +194,16 @@ const App: React.FC = () => {
               <textarea
                 value={importCode}
                 onChange={(e) => setImportCode(e.target.value)}
-                placeholder="コードをペーストしてください..."
-                className="w-full h-40 p-5 rounded-3xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-[11px] font-mono leading-relaxed"
+                placeholder="コードをここに貼り付けてください..."
+                className="w-full h-40 p-5 rounded-3xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-[10px] font-mono leading-relaxed"
               />
               <div className="mt-8 flex gap-3">
                 <button
                   onClick={handleImport}
                   disabled={!importCode.trim()}
-                  className="flex-1 py-4.5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 disabled:bg-slate-200 transition-all active:scale-95 shadow-xl shadow-indigo-100"
+                  className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 disabled:bg-slate-200 transition-all active:scale-95 shadow-xl shadow-indigo-100"
                 >
-                  導入
+                  セットを導入
                 </button>
               </div>
             </div>
